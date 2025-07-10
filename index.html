@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình xem hội thoại tiếng Nga</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .dialogue-section p {
+            margin-bottom: 0.5rem;
+        }
+        .word-clickable {
+            cursor: pointer;
+            text-decoration: underline;
+            color: #1d4ed8; /* Blue for clickable words */
+        }
+        .word-clickable:hover {
+            color: #2563eb; /* Darker blue on hover */
+        }
+        /* Custom scrollbar for content overflow */
+        .overflow-y-auto::-webkit-scrollbar {
+            width: 8px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-track {
+            background: #e0e0e0;
+            border-radius: 10px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .button-primary {
+            @apply bg-blue-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75;
+        }
+        .button-secondary {
+            @apply bg-gray-300 text-gray-800 px-5 py-2 rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-75;
+        }
+        .button-disabled {
+            @apply opacity-50 cursor-not-allowed;
+        }
+        .quick-ref-item {
+            @apply p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors duration-150;
+        }
+        .quick-ref-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8 flex items-center justify-center min-h-screen">
+    <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 md:p-10 max-w-4xl w-full border border-gray-200">
+        <h1 class="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-6">Học tiếng Nga qua hội thoại ngắn</h1>
+
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="flex items-center justify-center text-blue-600 mb-4">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span id="loading-text">Đang tải dữ liệu hội thoại...</span>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-message" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 hidden" role="alert">
+            <strong class="font-bold">Lỗi!</strong>
+            <span class="block sm:inline" id="error-text"></span>
+        </div>
+
+        <!-- Dialogue Navigation and Input -->
+        <div id="main-navigation-controls" class="flex flex-col sm:flex-row justify-between items-center mb-6 hidden">
+            <button id="prev-button" class="button-secondary mb-2 sm:mb-0 sm:mr-4 w-full sm:w-auto">Trước</button>
+            <div class="flex items-center justify-center flex-grow mb-2 sm:mb-0">
+                <span class="text-gray-600 font-medium mr-2 whitespace-nowrap">Hội thoại số:</span>
+                <input type="number" id="dialogue-number-input" min="1" max="1382615" value="1"
+                       class="w-24 p-2 border border-gray-300 rounded-md text-center focus:ring-blue-500 focus:border-blue-500">
+                <button id="go-to-dialogue-button" class="button-primary ml-2">Đi</button>
+            </div>
+            <span id="dialogue-index" class="text-gray-600 font-medium text-center flex-grow mx-2 hidden sm:block"></span>
+            <button id="next-button" class="button-primary mt-2 sm:mt-0 sm:ml-4 w-full sm:w-auto">Tiếp theo</button>
+        </div>
+        <div id="dialogue-index-mobile" class="text-gray-600 font-medium text-center mb-4 block sm:hidden"></div>
+
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Question Section -->
+            <div class="dialogue-section bg-blue-50 p-5 rounded-lg border border-blue-200 shadow-sm">
+                <h2 class="text-xl font-semibold text-blue-800 mb-3">Câu hỏi (Tiếng Nga)</h2>
+                <p id="question-text" class="text-gray-700 text-lg leading-relaxed"></p>
+            </div>
+
+            <!-- Answer Section -->
+            <div class="dialogue-section bg-green-50 p-5 rounded-lg border border-green-200 shadow-sm">
+                <h2 class="text-xl font-semibold text-green-800 mb-3">Câu trả lời (Tiếng Nga)</h2>
+                <p id="answer-text" class="text-gray-700 text-lg leading-relaxed"></p>
+            </div>
+        </div>
+
+        <!-- Vietnamese Translation Section -->
+        <div class="dialogue-section bg-purple-50 p-5 rounded-lg border border-purple-200 shadow-sm mt-6">
+            <h2 class="text-xl font-semibold text-purple-800 mb-3">Bản dịch tiếng Việt</h2>
+            <p id="vietnamese-translation" class="text-gray-700 text-lg leading-relaxed">
+                <!-- Translation will appear here -->
+            </p>
+            <button id="translate-button" class="button-primary mt-4 w-full">Dịch sang tiếng Việt</button>
+            <div id="translation-loading-indicator" class="flex items-center justify-center text-blue-600 mt-2 hidden">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Đang dịch...</span>
+            </div>
+        </div>
+
+        <!-- Dictionary Lookup Info -->
+        <div id="lookup-info" class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-yellow-800 text-sm">
+            <p>Nhấp vào một từ trong đoạn hội thoại để tra cứu trên vtudien.com và Wiktionary tiếng Nga.</p>
+            <p>*Nội dung các cuộc hội thoại được trích từ bộ dataset https://huggingface.co/datasets/Den4ikAI/russian_dialogues, ban đầu thu thập từ tin nhắn chat trên Telegram để phục vụ cho nghiên cứu AI.</p>
+            <p>Trang web này được tạo cho Thảo Nguyên để chị ấy học hành chăm chỉ.</p>
+        </div>
+
+        <!-- Quick Reference Section -->
+        <div class="mt-8 bg-white rounded-xl shadow-lg p-6 sm:p-8 md:p-10 border border-gray-200">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Tham khảo nhanh</h2>
+            <div id="quick-ref-navigation" class="flex justify-between items-center mb-4">
+                <button id="quick-ref-prev-batch" class="button-secondary">Lô trước</button>
+                <span id="quick-ref-index-display" class="text-gray-600 font-medium"></span>
+                <button id="quick-ref-next-batch" class="button-primary">Lô tiếp theo</button>
+            </div>
+            <div id="quick-ref-list" class="border border-gray-200 rounded-lg max-h-96 overflow-y-auto">
+                <!-- Quick reference items will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Global variables for Firebase configuration (provided by the environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Max dialogues count from user's info
+        // This will be updated after loading offsetsData
+        let TOTAL_DIALOGUES_COUNT = 0;
+        const QUICK_REF_BATCH_SIZE = 20; // Changed to 20 as requested
+
+        // Data storage for offsets
+        let offsetsData = []; // Stores {index, offset, length} for each dialogue
+
+        // File URLs
+        const DIALOGUES_FILE_URL = 'https://huggingface.co/datasets/lopmaybay/russrian_dialogues_1/resolve/main/russian_dialogues_relevance_1.jsonl';
+        const OFFSETS_FILE_URL = 'https://huggingface.co/datasets/lopmaybay/russrian_dialogues_1/resolve/main/offsets.json';
+
+        // Current starting index for the quick reference batch (1-based)
+        let currentQuickRefStartIndex = 1; // Initialized here globally
+
+        // Store the currently displayed dialogue object
+        let currentDisplayedDialogue = null;
+        let currentDisplayedIndex = 0;
+
+        // DOM elements
+        const questionTextElement = document.getElementById('question-text');
+        const answerTextElement = document.getElementById('answer-text');
+        const vietnameseTranslationElement = document.getElementById('vietnamese-translation');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const loadingText = document.getElementById('loading-text');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const mainNavigationControls = document.getElementById('main-navigation-controls');
+        const prevButton = document.getElementById('prev-button');
+        const nextButton = document.getElementById('next-button');
+        const dialogueIndexSpan = document.getElementById('dialogue-index');
+        const dialogueIndexMobileSpan = document.getElementById('dialogue-index-mobile'); // For mobile display
+        const dialogueNumberInput = document.getElementById('dialogue-number-input');
+        const goToDialogueButton = document.getElementById('go-to-dialogue-button');
+
+        const quickRefNavigation = document.getElementById('quick-ref-navigation');
+        const quickRefPrevBatchButton = document.getElementById('quick-ref-prev-batch');
+        const quickRefNextBatchButton = document.getElementById('quick-ref-next-batch');
+        const quickRefIndexDisplay = document.getElementById('quick-ref-index-display');
+        const quickRefList = document.getElementById('quick-ref-list');
+
+        const translateButton = document.getElementById('translate-button');
+        const translationLoadingIndicator = document.getElementById('translation-loading-indicator');
+
+
+        /**
+         * Displays an error message.
+         * @param {string} message - The error message to display.
+         */
+        function displayError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+            loadingIndicator.classList.add('hidden');
+            translationLoadingIndicator.classList.add('hidden'); // Hide translation loading
+            mainNavigationControls.classList.remove('hidden'); // Keep main navigation visible even on error
+            quickRefNavigation.classList.remove('hidden'); // Keep quick ref navigation visible
+            updateMainNavigationButtons(parseInt(dialogueNumberInput.value) || 1); // Update button states
+            updateQuickRefNavigationButtons();
+        }
+
+        /**
+         * Translates text from Russian to Vietnamese using the Gemini API.
+         * @param {string} text - The Russian text to translate.
+         * @returns {Promise<string>} - A promise that resolves with the Vietnamese translation.
+         */
+        async function translateText(text) {
+            try {
+                const chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: `Dịch văn bản tiếng Nga sau sang tiếng Việt: "${text}"` }] });
+                const payload = { contents: chatHistory };
+                const apiKey = "AIzaSyByK7ww7MRpFmUHJU7Mz70qj6OhjUFYMCg"; // Canvas will automatically provide the API key at runtime
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Lỗi API: ${response.status} - ${errorData.error?.message || 'Không xác định'}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error("Không nhận được bản dịch hợp lệ từ API.");
+                }
+            } catch (error) {
+                console.error("Lỗi khi dịch văn bản:", error);
+                throw error; // Re-throw to be caught by the calling function
+            }
+        }
+
+        /**
+         * Wraps each word in a span with a click event listener for dictionary lookup.
+         * @param {string} text - The text to process.
+         * @returns {string} - HTML string with clickable words.
+         */
+        function makeWordsClickable(text) {
+            // Split by space, keeping punctuation attached to words for better lookup
+            // This regex handles various common punctuation marks
+            return text.split(/(\s+)/).map(part => {
+                if (part.match(/\s+/)) { // If it's just whitespace, return it as is
+                    return part;
+                }
+                // Attempt to clean word for lookup, keeping original for display
+                const cleanWord = part.replace(/^[.,!?;:()"']+|[.,!?;:()"']+$|\s+/g, '');
+                if (cleanWord) {
+                    return `<span class="word-clickable" data-word="${cleanWord}">${part}</span>`;
+                }
+                return part;
+            }).join('');
+        }
+
+        /**
+         * Handles word click events to open dictionary links.
+         * @param {Event} event - The click event.
+         */
+        function handleWordClick(event) {
+            const target = event.target;
+            if (target.classList.contains('word-clickable')) {
+                const word = target.dataset.word;
+                if (word) {
+                    // Open vtudien.com
+                    const vtudienUrl = `https://vtudien.com/nga-viet/dictionary/nghia-cua-tu-${encodeURIComponent(word)}`;
+                    window.open(vtudienUrl, '_blank');
+
+                    // Open Russian Wiktionary
+                    const wiktionaryUrl = `https://ru.wiktionary.org/wiki/${encodeURIComponent(word)}`;
+                    window.open(wiktionaryUrl, '_blank');
+                }
+            }
+        }
+
+        /**
+         * Parses a JSON line, handling potential leading and trailing non-JSON characters.
+         * @param {string} line - The line string to parse.
+         * @returns {object|null} - The parsed JSON object or null if parsing fails.
+         */
+        function parseJsonLine(line) {
+            // Aggressively remove all non-printable ASCII characters (except common whitespace like space, tab, newline)
+            // and BOM, then trim.
+            let cleanedLine = line.replace(/[\u0000-\u001F\u007F\uFEFF]/g, '').trim();
+
+            if (cleanedLine === '') return null;
+
+            // Manual brace matching to find the exact JSON object
+            let openBraceCount = 0;
+            let jsonStart = -1;
+            let jsonEnd = -1;
+            let inString = false; // To handle escaped braces within strings
+
+            for (let i = 0; i < cleanedLine.length; i++) {
+                const char = cleanedLine[i];
+
+                if (char === '\\' && inString) { // Handle escaped characters in string
+                    i++; // Skip the next character as it's escaped
+                    continue;
+                }
+
+                if (char === '"') {
+                    inString = !inString;
+                }
+
+                if (!inString) { // Only count braces if not inside a string
+                    if (char === '{') {
+                        if (jsonStart === -1) { // Found the very first opening brace
+                            jsonStart = i;
+                        }
+                        openBraceCount++;
+                    } else if (char === '}') {
+                        openBraceCount--;
+                        if (openBraceCount === 0 && jsonStart !== -1) { // Found the matching closing brace for the first object
+                            jsonEnd = i;
+                            break; // Found the complete first JSON object
+                        }
+                    }
+                }
+            }
+
+            if (jsonStart !== -1 && jsonEnd !== -1) {
+                const jsonString = cleanedLine.substring(jsonStart, jsonEnd + 1); // +1 to include the closing brace
+                try {
+                    return JSON.parse(jsonString);
+                } catch (e) {
+                    console.error(`Lỗi phân tích cú pháp JSON (thủ công, dòng ${currentDisplayedIndex || 'unknown'}): "${jsonString.substring(0, Math.min(jsonString.length, 100))}..."`, e);
+                    return null;
+                }
+            } else {
+                // This means no complete JSON object was found or it was malformed
+                // console.warn(`Dòng không chứa đối tượng JSON hợp lệ (tìm kiếm thủ công thất bại, dòng ${currentDisplayedIndex || 'unknown'}): "${cleanedLine.substring(0, Math.min(cleanedLine.length, 100))}..."`);
+                return null;
+            }
+        }
+
+        /**
+         * Loads the offsets.json file.
+         * This must be called once at the beginning to populate offsetsData.
+         */
+        async function loadOffsetsFile() {
+            loadingText.textContent = 'Đang tải file chỉ mục...';
+            loadingIndicator.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+
+            try {
+                const response = await fetch(OFFSETS_FILE_URL);
+                if (!response.ok) {
+                    throw new Error(`Không thể tải file chỉ mục: ${response.statusText}`);
+                }
+                offsetsData = await response.json();
+                TOTAL_DIALOGUES_COUNT = offsetsData.length;
+                dialogueNumberInput.max = TOTAL_DIALOGUES_COUNT; // Update max value for input
+                console.log(`Đã tải thành công ${TOTAL_DIALOGUES_COUNT} mục chỉ mục.`);
+            } catch (error) {
+                displayError(`Lỗi khi tải file chỉ mục: ${error.message}`);
+                throw error; // Re-throw to prevent further execution if offsets fail to load
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+
+        /**
+         * Fetches and displays a specific dialogue by its 1-based index using byte range.
+         * @param {number} targetIndex - The 1-based index of the dialogue to display.
+         */
+        async function fetchAndDisplayDialogue(targetIndex) {
+            // Input validation
+            if (isNaN(targetIndex) || targetIndex < 1 || targetIndex > TOTAL_DIALOGUES_COUNT) {
+                displayError(`Vui lòng nhập một số hợp lệ từ 1 đến ${TOTAL_DIALOGUES_COUNT}.`);
+                return;
+            }
+
+            loadingText.textContent = `Đang tải hội thoại số ${targetIndex}...`;
+            loadingIndicator.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+            mainNavigationControls.classList.add('hidden'); // Hide main navigation during loading
+            quickRefNavigation.classList.add('hidden'); // Hide quick ref navigation during loading
+
+            // Clear previous content
+            questionTextElement.innerHTML = '';
+            answerTextElement.innerHTML = '';
+            vietnameseTranslationElement.innerHTML = ''; // Clear translation
+            translateButton.disabled = true; // Disable translate button while loading new dialogue
+
+            try {
+                // Get offset and length from the pre-loaded offsetsData
+                // Adjust index for 0-based array lookup
+                const entry = offsetsData[targetIndex - 1];
+
+                if (!entry) {
+                    throw new Error(`Không tìm thấy dữ liệu chỉ mục cho hội thoại số ${targetIndex}.`);
+                }
+
+                const startByte = entry.offset;
+                const endByte = entry.offset + entry.length - 1; // Range is inclusive
+
+                const response = await fetch(DIALOGUES_FILE_URL, {
+                    headers: {
+                        'Range': `bytes=${startByte}-${endByte}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Lỗi khi tải dữ liệu hội thoại (HTTP ${response.status}): ${response.statusText}`);
+                }
+
+                const text = await response.text();
+                const dialogue = parseJsonLine(text);
+
+                if (dialogue) {
+                    currentDisplayedDialogue = dialogue; // Store the fetched dialogue
+                    currentDisplayedIndex = targetIndex; // Store the fetched dialogue's index
+                    displayDialogueContentOnlyRussian(dialogue, targetIndex); // Display only Russian parts
+                    translateButton.disabled = false; // Enable translate button
+                } else {
+                    displayError(`Không thể phân tích cú pháp hội thoại số ${targetIndex}.`);
+                    translateButton.disabled = true;
+                }
+
+            } catch (error) {
+                displayError(`Lỗi khi tải hội thoại số ${targetIndex}: ${error.message}`);
+                console.error("Lỗi trong fetchAndDisplayDialogue:", error);
+                translateButton.disabled = true;
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                mainNavigationControls.classList.remove('hidden');
+                quickRefNavigation.classList.remove('hidden');
+                updateMainNavigationButtons(targetIndex); // Update main navigation button states after load
+                updateQuickRefNavigationButtons(); // Update quick ref navigation button states
+            }
+        }
+
+        /**
+         * Displays only the Russian content of a given dialogue object.
+         * @param {object} dialogueToDisplay - The dialogue object to display.
+         * @param {number} displayedIndex - The 1-based index of the dialogue being displayed.
+         */
+        function displayDialogueContentOnlyRussian(dialogueToDisplay, displayedIndex) {
+            // Update dialogue index display
+            dialogueNumberInput.value = displayedIndex; // Update input field
+            dialogueIndexSpan.textContent = `Hội thoại ${displayedIndex} / ${TOTAL_DIALOGUES_COUNT}`;
+            dialogueIndexMobileSpan.textContent = `Hội thoại ${displayedIndex} / ${TOTAL_DIALOGUES_COUNT}`;
+
+            questionTextElement.innerHTML = makeWordsClickable(dialogueToDisplay.question);
+            answerTextElement.innerHTML = makeWordsClickable(dialogueToDisplay.answer);
+            vietnameseTranslationElement.innerHTML = 'Nhấp "Dịch sang tiếng Việt" để xem bản dịch.'; // Placeholder for translation
+        }
+
+        /**
+         * Handles the translation process when the translate button is clicked.
+         */
+        async function handleTranslateClick() {
+            if (!currentDisplayedDialogue) {
+                displayError("Không có hội thoại nào để dịch.");
+                return;
+            }
+
+            translationLoadingIndicator.classList.remove('hidden');
+            translateButton.disabled = true;
+            errorMessage.classList.add('hidden');
+            vietnameseTranslationElement.innerHTML = ''; // Clear previous translation
+
+            try {
+                const translatedQuestion = await translateText(currentDisplayedDialogue.question);
+                const translatedAnswer = await translateText(currentDisplayedDialogue.answer);
+                const fullTranslation = `<strong>Câu hỏi:</strong> ${translatedQuestion}<br><strong>Câu trả lời:</strong> ${translatedAnswer}`;
+                vietnameseTranslationElement.innerHTML = makeWordsClickable(fullTranslation);
+            } catch (error) {
+                displayError(`Lỗi khi dịch hội thoại số ${currentDisplayedIndex}: ${error.message}`);
+                console.error("Lỗi khi dịch hội thoại:", error);
+            } finally {
+                translationLoadingIndicator.classList.add('hidden');
+                translateButton.disabled = false;
+            }
+        }
+
+        /**
+         * Updates the disabled state of main navigation buttons based on the current index.
+         * @param {number} currentIndex - The 1-based index of the currently displayed dialogue.
+         */
+        function updateMainNavigationButtons(currentIndex) {
+            prevButton.disabled = currentIndex <= 1;
+            nextButton.disabled = currentIndex >= TOTAL_DIALOGUES_COUNT;
+
+            prevButton.classList.toggle('button-disabled', prevButton.disabled);
+            nextButton.classList.toggle('button-disabled', nextButton.disabled);
+        }
+
+        /**
+         * Loads a batch of dialogues for the quick reference list by fetching each line individually.
+         * This ensures correct indexing and content.
+         * @param {number} startIndex - The 1-based index to start loading from.
+         * @param {number} batchSize - The number of dialogues to load.
+         * @returns {Promise<Array>} - A promise that resolves with an array of {dialogue: object, globalIndex: number} objects.
+         */
+        async function loadQuickReferenceBatch(startIndex, batchSize) {
+            loadingText.textContent = `Đang tải lô tham khảo nhanh từ dòng ${startIndex}...`;
+            loadingIndicator.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+            mainNavigationControls.classList.add('hidden');
+            quickRefNavigation.classList.add('hidden');
+
+            let batch = [];
+
+            try {
+                startIndex = Math.max(1, startIndex);
+                const actualEndIndex = Math.min(startIndex + batchSize - 1, TOTAL_DIALOGUES_COUNT);
+
+                if (startIndex > TOTAL_DIALOGUES_COUNT) {
+                    return []; // No more dialogues to load
+                }
+
+                // Fetch each dialogue individually for the quick reference batch
+                for (let i = startIndex; i <= actualEndIndex; i++) {
+                    const entry = offsetsData[i - 1]; // Get offset data for the current global index
+
+                    if (!entry) {
+                        console.warn(`Không tìm thấy dữ liệu chỉ mục cho hội thoại số ${i}. Bỏ qua.`);
+                        continue; // Skip this one if data is missing
+                    }
+
+                    const startByte = entry.offset;
+                    const endByte = entry.offset + entry.length - 1;
+
+                    try {
+                        const response = await fetch(DIALOGUES_FILE_URL, {
+                            headers: {
+                                'Range': `bytes=${startByte}-${endByte}`
+                            }
+                        });
+
+                        if (!response.ok) {
+                            console.warn(`Lỗi khi tải hội thoại số ${i} (HTTP ${response.status}): ${response.statusText}. Bỏ qua.`);
+                            continue; // Skip this one on fetch error
+                        }
+
+                        const text = await response.text();
+                        const dialogue = parseJsonLine(text);
+
+                        if (dialogue) {
+                            batch.push({ dialogue: dialogue, globalIndex: i }); // Store with its correct global index
+                        } else {
+                            console.warn(`Không thể phân tích cú pháp hội thoại số ${i}. Bỏ qua.`);
+                        }
+                    } catch (innerError) {
+                        console.warn(`Lỗi khi xử lý hội thoại số ${i}: ${innerError.message}. Bỏ qua.`);
+                    }
+                }
+
+                return batch;
+
+            } catch (outerError) {
+                displayError(`Lỗi khi tải lô tham khảo nhanh: ${outerError.message}`);
+                console.error("Lỗi trong loadQuickReferenceBatch (outer):", outerError);
+                return []; // Return empty batch on outer error
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                mainNavigationControls.classList.remove('hidden');
+                quickRefNavigation.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Displays the quick reference list.
+         * @param {Array} dialoguesBatch - An array of {dialogue: object, globalIndex: number} objects for the quick reference.
+         */
+        function displayQuickReferenceList(dialoguesBatch) {
+            quickRefList.innerHTML = ''; // Clear previous list
+            if (dialoguesBatch.length === 0) {
+                quickRefList.innerHTML = '<p class="p-4 text-gray-500 text-center">Không có hội thoại nào trong lô này.</p>';
+                return;
+            }
+
+            dialoguesBatch.forEach(item => { // item is now { dialogue, globalIndex }
+                const globalIndex = item.globalIndex; // Use the stored global index directly
+                const listItem = document.createElement('div');
+                listItem.classList.add('quick-ref-item');
+                listItem.dataset.index = globalIndex; // Store the global index
+                listItem.innerHTML = `
+                    <p class="font-semibold text-gray-800">#${globalIndex}: <span class="text-blue-700">${item.dialogue.question}</span></p>
+                    <p class="text-gray-600 ml-4">Trả lời: ${item.dialogue.answer}</p>
+                `;
+                // Removed click event listener as requested
+                quickRefList.appendChild(listItem);
+            });
+
+            // Update quick reference index display
+            // Calculate the actual start and end index based on the items successfully displayed
+            const actualDisplayedStart = dialoguesBatch.length > 0 ? dialoguesBatch[0].globalIndex : currentQuickRefStartIndex;
+            const actualDisplayedEnd = dialoguesBatch.length > 0 ? dialoguesBatch[dialoguesBatch.length - 1].globalIndex : currentQuickRefStartIndex;
+
+            if (dialoguesBatch.length > 0) {
+                quickRefIndexDisplay.textContent = `Hội thoại ${actualDisplayedStart} - ${actualDisplayedEnd} / ${TOTAL_DIALOGUES_COUNT}`;
+            } else {
+                quickRefIndexDisplay.textContent = `Hết dữ liệu`;
+            }
+
+            updateQuickRefNavigationButtons();
+        }
+
+        /**
+         * Updates the disabled state of quick reference navigation buttons.
+         */
+        function updateQuickRefNavigationButtons() {
+            quickRefPrevBatchButton.disabled = currentQuickRefStartIndex === 1;
+            // Disable next if the current batch starts at a position where the next batch would exceed total count
+            quickRefNextBatchButton.disabled = (currentQuickRefStartIndex + QUICK_REF_BATCH_SIZE - 1) >= TOTAL_DIALOGUES_COUNT;
+
+            quickRefPrevBatchButton.classList.toggle('button-disabled', quickRefPrevBatchButton.disabled);
+            quickRefNextBatchButton.toggleAttribute('disabled', quickRefNextBatchButton.disabled);
+            quickRefNextBatchButton.classList.toggle('button-disabled', quickRefNextBatchButton.disabled);
+        }
+
+
+        /**
+         * Initializes the application.
+         */
+        async function initializeApp() {
+            // Add click listeners to the sections for word lookup (only once)
+            questionTextElement.addEventListener('click', handleWordClick);
+            answerTextElement.addEventListener('click', handleWordClick);
+            vietnameseTranslationElement.addEventListener('click', handleWordClick);
+
+            // Set initial input value (will be updated after offsets load)
+            dialogueNumberInput.value = 1;
+
+            // Load the offsets file first
+            try {
+                await loadOffsetsFile(); // This sets TOTAL_DIALOGUES_COUNT
+            } catch (e) {
+                console.error("Không thể khởi tạo ứng dụng do lỗi tải file chỉ mục:", e);
+                return; // Stop initialization if offsets cannot be loaded
+            }
+
+            // Explicitly ensure currentQuickRefStartIndex is set here before first use in display/update functions
+            currentQuickRefStartIndex = 1; // Đảm bảo biến được khởi tạo rõ ràng
+
+            // Event listener for "Go" button
+            goToDialogueButton.addEventListener('click', async () => {
+                const targetIndex = parseInt(dialogueNumberInput.value);
+                await fetchAndDisplayDialogue(targetIndex);
+            });
+
+            // Modify main prev/next button logic
+            prevButton.addEventListener('click', async () => {
+                let currentVal = parseInt(dialogueNumberInput.value);
+                if (isNaN(currentVal)) currentVal = 1; // Default if input is empty
+                if (currentVal > 1) {
+                    dialogueNumberInput.value = currentVal - 1;
+                    await fetchAndDisplayDialogue(currentVal - 1);
+                }
+            });
+
+            nextButton.addEventListener('click', async () => {
+                let currentVal = parseInt(dialogueNumberInput.value);
+                if (isNaN(currentVal)) currentVal = 0; // Default if input is empty
+                if (currentVal < TOTAL_DIALOGUES_COUNT) {
+                    dialogueNumberInput.value = currentVal + 1;
+                    await fetchAndDisplayDialogue(currentVal + 1);
+                }
+            });
+
+            // Quick reference navigation listeners
+            quickRefPrevBatchButton.addEventListener('click', async () => {
+                if (currentQuickRefStartIndex > 1) {
+                    currentQuickRefStartIndex = Math.max(1, currentQuickRefStartIndex - QUICK_REF_BATCH_SIZE);
+                    const batch = await loadQuickReferenceBatch(currentQuickRefStartIndex, QUICK_REF_BATCH_SIZE);
+                    displayQuickReferenceList(batch);
+                }
+            });
+
+            quickRefNextBatchButton.addEventListener('click', async () => {
+                if ((currentQuickRefStartIndex + QUICK_REF_BATCH_SIZE - 1) < TOTAL_DIALOGUES_COUNT) {
+                    currentQuickRefStartIndex += QUICK_REF_BATCH_SIZE;
+                    const batch = await loadQuickReferenceBatch(currentQuickRefStartIndex, QUICK_REF_BATCH_SIZE);
+                    displayQuickReferenceList(batch);
+                }
+            });
+
+            // Add event listener for the new translate button
+            translateButton.addEventListener('click', handleTranslateClick);
+
+
+            // Initial load: display dialogue 1 and first quick reference batch
+            await fetchAndDisplayDialogue(1); // Load the first dialogue for main view
+            const initialQuickRefBatch = await loadQuickReferenceBatch(currentQuickRefStartIndex, QUICK_REF_BATCH_SIZE);
+            displayQuickReferenceList(initialQuickRefBatch);
+        }
+
+        // Initialize the app when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        // --- Firebase Initialization (if needed for data persistence, currently not used for this app) ---
+        // import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // let app;
+        // let db;
+        // let auth;
+        // let userId;
+
+        // async function setupFirebase() {
+        //     try {
+        //         app = initializeApp(firebaseConfig);
+        //         db = getFirestore(app);
+        //         auth = getAuth(app);
+
+        //         if (initialAuthToken) {
+        //             await signInWithCustomToken(auth, initialAuthToken);
+        //         } else {
+        //             await signInAnonymously(auth);
+        //         }
+        //         userId = auth.currentUser?.uid || crypto.randomUUID();
+        //         console.log("Firebase initialized. User ID:", userId);
+        //     } catch (error) {
+        //         console.error("Error initializing Firebase:", error);
+        //         // Handle Firebase initialization errors gracefully
+        //     }
+        // }
+
+        // setupFirebase(); // Call Firebase setup if you plan to use it for data storage
+    </script>
+</body>
+</html>
