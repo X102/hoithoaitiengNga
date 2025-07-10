@@ -122,9 +122,9 @@
 
         <!-- Dictionary Lookup Info -->
         <div id="lookup-info" class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-yellow-800 text-sm">
-            <p>Nhấp vào một từ trong đoạn hội thoại để tra cứu trên vtudien.com và Wiktionary tiếng Nga.</p>
+            <p>Nhấp vào một từ trong đoạn hội thoại để tra cứu trên vtudien.com.</p>
             <p>*Nội dung các cuộc hội thoại được trích từ bộ dataset https://huggingface.co/datasets/Den4ikAI/russian_dialogues, ban đầu thu thập từ tin nhắn chat trên Telegram để phục vụ cho nghiên cứu AI.</p>
-            <p>Trang web này được tạo cho Thảo Nguyên để chị ấy học hành chăm chỉ.</p>
+            <p>*Trang web này được tạo cho Thảo Nguyên để chị ấy học hành chăm chỉ.</p>
         </div>
 
         <!-- Quick Reference Section -->
@@ -150,7 +150,7 @@
         // Max dialogues count from user's info
         // This will be updated after loading offsetsData
         let TOTAL_DIALOGUES_COUNT = 0;
-        const QUICK_REF_BATCH_SIZE = 20; // Changed to 20 as requested
+        const QUICK_REF_BATCH_SIZE = 200; // Changed to 20 as requested
 
         // Data storage for offsets
         let offsetsData = []; // Stores {index, offset, length} for each dialogue
